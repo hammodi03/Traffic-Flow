@@ -1,0 +1,402 @@
+; ********************************************************************************************************************************************************
+;***          ENVIRONMENT.NLS  (contains all the code for the environment)                                                                                    ****
+;*********************************************************************************************************************************************************
+;*********************************************************************************************************************************************************
+; LOGBOOK OF UPDATES IN THIS FILE
+; --Date--- |-----Description--------------------------------------------------------------------------------|---Person(s)-------------------------------
+; 20250423    Initial template of a dummy-breed to be adapted by the project group                               Gion
+; 20250429    Changed map size and creation of cars' nodes and links                                             Thomas
+; 20250430    Added new label, Charging and adjusted position of other labels                                    Andreas     
+; 20250511    Added the human nodes system to the new map                                                        Mohamed
+; 20250512    Added human nodes to update-node-visibility function                                               Andreas
+; 20250515    Moved globals location names from car.nls to here                                                  Andreas
+; 20250516    Moved all globals to main                                                                          Andreas
+; 20250518    Changed function for showing nodes to also showing car-labels                                      Andreas
+;********************end logbook ************************************************************************************************************************
+;*********************************************************************************************************************************************************
+;setup-environment
+to setup-environment
+  import-pcolors "map 4x3.png"
+  create-all-nodes-and-links
+  place-labels
+  create-human-nodess
+  connect-places-to-car-nodes
+end 
+;****************** end setup **************************************************************************************************************
+;************************************************************************************************************************************************************
+; NODE SYSTEM 
+
+to create-all-nodes-and-links
+  let counter 1
+  let xpos 0
+  let ypos 0
+  let i 1
+  let xs -84
+  let ys 84
+  set-default-shape nodes "circle"
+  
+  
+  repeat 4 [  
+    repeat 5 [
+      create-nodes 1 [
+        set id counter - 1
+        ;set label counter
+        set label id
+        set label-color yellow
+        set color blue
+        ask nodes with [id = counter - 1] [
+          setxy ( xs + xpos ) ( ys )
+        ]
+        set counter counter + 1
+        set xpos xpos + 42
+      ]
+    ]
+    set ys ys - 42 
+    set xpos 0
+  ]
+  
+  set ys 84
+  set xs -63
+  repeat 3 [  
+    repeat 4 [
+      create-nodes 1 [
+        set id counter - 1
+        ;set label counter
+        set label id
+        set label-color yellow
+        set color blue
+        ask nodes with [id = counter - 1] [
+          setxy ( xs + xpos ) ( ys )
+        ]
+        set counter counter + 1
+        set xpos xpos + 42
+      ]
+    ]
+    set ys ys - 42 
+    set xpos 0
+  ]
+  
+  set ys 73
+  set xs -63
+  repeat 3 [  
+    repeat 4 [
+      create-nodes 1 [
+        set id counter - 1
+        ;set label counter
+        set label id
+        set label-color yellow
+        set color blue
+        ask nodes with [id = counter - 1] [
+          setxy ( xs + xpos ) ( ys )
+        ]
+        set counter counter + 1
+        set xpos xpos + 42
+      ]
+    ]
+    set ys ys - 42 
+    set xpos 0
+  ]
+  
+  ask nodes [
+    set hidden? true
+  ]
+  link-nearest-neighbors
+end
+;
+;
+to link-nearest-neighbors
+   ask nodes [
+    let offsets [[1 0] [-1 0] [0 11] [0 -11]]
+    let neighbors-to-check map [[offset] ->
+      patch-at (item 0 offset) (item 1 offset)
+    ] offsets
+
+    foreach neighbors-to-check [ neighbor-patch ->
+      if neighbor-patch != nobody [
+        let neighbor-node one-of nodes-on neighbor-patch
+        if neighbor-node != nobody and not link-neighbor? neighbor-node [
+          create-link-with neighbor-node [
+            set color blue
+            set thickness 0.4
+            set hidden? true
+            set label "↔"
+          ]
+        ]
+      ]
+    ]
+  ]
+  ask nodes [
+    let offsets [[21 0] [-21 0] [0 21] [0 -21]]
+    let neighbors-to-check map [[offset] ->
+      patch-at (item 0 offset) (item 1 offset)
+    ] offsets
+
+    foreach neighbors-to-check [ neighbor-patch ->
+      if neighbor-patch != nobody [
+        let neighbor-node one-of nodes-on neighbor-patch
+        if neighbor-node != nobody and not link-neighbor? neighbor-node [
+          create-link-with neighbor-node [
+            set color blue
+            set thickness 0.4
+            set hidden? true
+            set label "↔"
+          ]
+        ]
+      ]
+    ]
+  ]
+  ask nodes with [id < 20] [
+    let offsets [[21 0] [-21 0] [0 42] [0 -42]]     ; 
+    let neighbors-to-check map [[offset] ->
+      patch-at (item 0 offset) (item 1 offset)
+    ] offsets
+
+    foreach neighbors-to-check [ neighbor-patch ->
+      if neighbor-patch != nobody [
+        let neighbor-node one-of nodes-on neighbor-patch
+        if neighbor-node != nobody and not link-neighbor? neighbor-node [
+          create-link-with neighbor-node [
+            set color blue
+            set thickness 0.4
+            set hidden? true
+            set label "↔"
+          ]
+        ]
+      ]
+    ]
+  ]
+    ask nodes with [ (14 < id) and ( id < 20) ] [  ; 
+    let offsets [[42 0] [-42 0] [0 42] [0 -42]]
+    let neighbors-to-check map [[offset] ->
+      patch-at (item 0 offset) (item 1 offset)
+    ] offsets
+
+    foreach neighbors-to-check [ neighbor-patch ->
+      if neighbor-patch != nobody [
+        let neighbor-node one-of nodes-on neighbor-patch
+        if neighbor-node != nobody and not link-neighbor? neighbor-node [
+          create-link-with neighbor-node [
+            set color blue
+            set thickness 0.4
+            set hidden? true
+            set label "↔"
+          ]
+        ]
+      ]
+    ]
+  ]
+end
+
+to update-node-and-car-label-visibility
+  if show-nodes-and-car-labels [
+    ask nodes [
+      set hidden? false
+    ]
+    ask links
+   [
+      set hidden? false
+    ]
+    ask human-nodes [
+      set hidden? false
+    ]
+    ask cars [
+      set label who
+    ]
+  ]
+  if not show-nodes-and-car-labels [
+    ask nodes [
+      set hidden? true
+    ]
+     ask links
+   [
+      set hidden? true
+    ]
+     ask human-nodes [
+      set hidden? true
+    ]
+    ask cars [
+      set label ""
+    ]
+  ]
+end
+
+to place-labels
+  ask patch -60 63 [
+    set plabel "School"
+    set plabel-color white
+  ]
+  
+  ask patch -17 63 [
+    set plabel "Homes"
+    set plabel-color white
+  ]
+  
+  ask patch 24 63 [
+    set plabel "Disco"
+    set plabel-color white
+  ]
+  
+  ask patch 26 -20 [
+    set plabel "Charging"
+    set plabel-color white
+  ] 
+  
+  ask patch -59 20 [
+    set plabel "Home1"
+    set plabel-color white
+  ]
+  ask patch 67 63 [
+    set plabel "Office"
+    set plabel-color white
+  ]
+end
+
+to create-human-nodess
+    create-human-nodes 1 [
+      setxy -70 76       
+      set shape "circle"
+      set color blue
+      set size 2
+      set label "A1"
+      set ID 000
+    ]
+    create-human-nodes 1 [
+      setxy -55 76   
+      set shape "circle"
+      set color blue
+      set size 2
+      set label "A2"
+      set ID 001
+    ]
+    create-human-nodes 1 [
+      setxy -27 76  
+      set shape "circle"
+      set color blue
+      set size 2
+      set label "B1"
+      set ID 010
+    ]create-human-nodes 1 [
+      setxy -14 76        ; move to x = 5, y = 5
+      set shape "circle"
+      set color blue
+      set size 2
+      set label "B2"
+      set ID 011
+    ]create-human-nodes 1 [
+      setxy 14 76        ; move to x = 5, y = 5
+      set shape "circle"
+      set color blue
+      set size 2
+      set label "C1"
+      set ID 020
+    ]create-human-nodes 1 [
+      setxy 27 76        ; move to x = 5, y = 5
+      set shape "circle"
+      set color blue
+      set size 2
+      set label "C2"
+      set ID 021
+    ]create-human-nodes 1 [
+      setxy 55 76        ; move to x = 5, y = 5
+      set shape "circle"
+      set color blue
+      set size 2
+      set label "D1"
+      set ID 030
+    ]create-human-nodes 1 [
+      setxy 70 76        ; move to x = 5, y = 5
+      set shape "circle"
+      set color blue
+      set size 2
+      set label "D2"
+      set ID 031
+    ]
+    
+    create-human-nodes 1 [
+      setxy -70 35        ; move to x = 5, y = 5
+      set shape "circle"
+      set color blue
+      set size 2
+      set label "E1"
+      set ID 040
+    ]create-human-nodes 1 [
+      setxy -55 35        ; move to x = 5, y = 5
+      set shape "circle"
+      set color blue
+      set size 2
+      set label "E2"
+      set ID 041
+    ]create-human-nodes 1 [
+      setxy -27 35        ; move to x = 5, y = 5
+      set shape "circle"
+      set color blue
+      set size 2
+      set label "F1"
+      set ID 050
+    ]create-human-nodes 1 [
+      setxy -14 35        ; move to x = 5, y = 5
+      set shape "circle"
+      set color blue
+      set size 2
+      set label "F2"
+      set ID 051
+    ]create-human-nodes 1 [
+      setxy 14 35        ; move to x = 5, y = 5
+      set shape "circle"
+      set color blue
+      set size 2
+      set label "G1"
+      set ID 060
+    ]create-human-nodes 1 [
+      setxy 27 35        ; move to x = 5, y = 5
+      set shape "circle"
+      set color blue
+      set size 2
+      set label "G2"
+      set ID 061
+    ]create-human-nodes 1 [
+      setxy 55 35        ; move to x = 5, y = 5
+      set shape "circle"
+      set color blue
+      set size 2
+      set label "H1"
+      set ID 070
+    ]create-human-nodes 1 [
+      setxy 70 35        ; move to x = 5, y = 5
+      set shape "circle"
+      set color blue
+      set size 2
+      set label "H2"
+      set ID 071
+    ]
+    
+    create-human-nodes 1 [
+      setxy -70 -7       ; move to x = 5, y = 5
+      set shape "circle"
+      set color blue
+      set size 2
+      set label "I1"
+      set ID 080
+    ]create-human-nodes 1 [
+      setxy -55 -7        ; move to x = 5, y = 5
+      set shape "circle"
+      set color blue
+      set size 2
+      set label "I2"
+      set ID 081
+    ]
+end
+
+to connect-places-to-car-nodes
+  ; Connects location to node-nr
+  set school 32
+  set homes 33
+  set disco 34
+  set charging 42
+  set office 35
+  set home1 36
+end
+
+
+;***************************end proactive behavior ***************************************************************************************************
+  

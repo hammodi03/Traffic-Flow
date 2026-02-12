@@ -1,0 +1,490 @@
+; ********************************************************************************************************************************************************
+;***                                                     human.NLS                                                                                    ****
+;*********************************************************************************************************************************************************
+;*********************************************************************************************************************************************************
+; LOGBOOK OF UPDATES IN THIS FILE
+; --Date--- |-----Description--------------------------------------------------------------------------------|---Person(s)-------------------------------
+; 20250423    Initial template of a dummy-breed to be adapted by the project group                               Gion
+; 20250506    Implemented so that the pedestrian gets into a building                                            Mohamed      
+; 20250508    jacob                                              
+; 20250511    Adjusted so that the human-breed adapts to the new nodes                                           Mohamed                                                                                           Mohamed
+; 20250519    Combined the reactive part for traffic lights to request traffic lights to turn to green.          Mohamed
+; 20250519    Built functions for human to be able to ride with taxi                                             Andreas
+; 20250520    Intergated the code that makes humans to take taxis in the architectural pattern of the agent      Jacob
+; 20250520    Implemented some destinations for the pedestrians so that they have somewhere to go after being to School.
+;             By taking the nodes ID numbers and randomizing them so that the pedestrians has different
+;             buildings to go to.                                                                                Mohamed
+;********************end logbook ************************************************************************************************************************
+;*********************************************************************************************************************************************************
+; LOCAL VARIABLES
+
+humans-own [
+ speed
+ waiting-for-green
+ 
+ target_node_x
+ target_node_y
+ 
+ human-type ;new
+  
+ entering_building
+  
+  
+ bool-at-intersektion
+ check-intersektion-threshhold
+  
+  
+ rest-time
+  
+ bool-at-location
+ bool-just-entered-building
+ bool-in-bound
+ bool-needs-new-location
+ to-get-out-of-taxi
+  
+  
+  
+ state
+ bool-to-update-state
+ incoming-queue ;new
+ taxi-id ;new
+]
+;******************* end local variables *****************************************************************************************************************
+;**********************************************************************************************************************************************************
+; SETUP FUNCTIONS
+to setup-humans
+  repeat 1 [
+    create-humans 3 [
+      set speed 0.4
+      set shape "person"
+      set human-type "regular"
+      set size 2
+      set heading 180 
+      set color white
+      setxy (-77 + random 3) (-10 + random 35) 
+      set target_node_x -70
+      set target_node_y 76
+      set entering_building 0
+      set bool-at-intersektion 0
+      set check-intersektion-threshhold 0
+      set bool-in-bound 1
+      
+      set rest-time 10000
+      
+      set to-get-out-of-taxi 0
+      set bool-just-entered-building 0
+      set bool-needs-new-location 0
+      set state "walking around"
+      set incoming-queue[]
+    ]
+  ]
+ 
+    create-humans 3 [
+      set speed 0.4
+      set shape "person"
+      set human-type "regular"
+      set size 2
+      set heading 270 
+      set color white
+      setxy (70 + random 2) (76 + random 2) 
+      set target_node_x 55
+      set target_node_y 76
+      set entering_building 0
+      set bool-at-intersektion 0
+      set check-intersektion-threshhold 0
+      set bool-in-bound 1
+      
+      set rest-time 10000
+      
+      set to-get-out-of-taxi 0
+      set bool-just-entered-building 0
+      set bool-needs-new-location 0
+      set state "walking around"
+      set incoming-queue[]
+    ]
+  
+   create-humans 2 [
+      set speed 0.4
+      set shape "person"
+      set human-type "regular"
+      set size 2
+      set heading 270 
+      set color white
+      setxy (27 + random 2) (35 + random 2) 
+      set target_node_x 55
+      set target_node_y 76
+      set entering_building 0
+      set bool-at-intersektion 0
+      set check-intersektion-threshhold 0
+      set bool-in-bound 1
+      
+      set rest-time 10000
+      
+      set to-get-out-of-taxi 0
+      set bool-just-entered-building 0
+      set bool-needs-new-location 0
+      set state "walking around"
+      set incoming-queue[]
+    ]
+  
+  create-humans 1 [
+      set speed 0.4
+      set shape "person"
+      set human-type "regular"
+      set size 2
+      set heading 90 
+      set color white
+      setxy (-27 + random 2) (35 + random 2) 
+      set target_node_x 55
+      set target_node_y 76
+      set entering_building 0
+      set bool-at-intersektion 0
+      set check-intersektion-threshhold 0
+      set bool-in-bound 1
+      
+      set rest-time 10000
+      
+      set to-get-out-of-taxi 0
+      set bool-just-entered-building 0
+      set bool-needs-new-location 0
+      set state "walking around"
+      set incoming-queue[]
+    ]
+
+  
+  
+  ;new
+  create-humans 1 [
+      set speed 0.4
+      set shape "person"
+      set human-type "taxi-rider"
+      set size 2
+      set heading 180 
+      set color white
+      setxy (-77 + random 3) (-10 + random 35) 
+      set target_node_x -70  
+      set target_node_y 35
+    
+    
+      set entering_building 0
+      set bool-at-intersektion 0
+      set check-intersektion-threshhold 0
+      set bool-in-bound 1
+      
+      set rest-time 10000
+      
+      set to-get-out-of-taxi 0
+      set bool-just-entered-building 0
+      set bool-needs-new-location 0
+      set state "walking around"
+      set incoming-queue[]
+    ]
+
+
+end 
+
+;---- specific setup functions, ; add your own code!
+
+;***************************end setup functions ******************************************************************************************************************
+;************************************************************************************************************************************************************
+; UPDATE BELIEFS
+
+to updateBeliefs-human
+ if state = "walking around" [
+    check-traffic-light-and-request
+    move-human 
+    check-if-at-intersektion-human ; if true, a new heading is choosen
+    check-if-at-target-human ;if true, state updates
+ ]
+ if state = "entering building" [
+    move-human
+    check-if-enterd-building ;if true, a rest-time is given and state updates
+  ]
+  if state = "resting" [
+    decrement-rest-time
+    check-if-rest-time-is-over ; leaves building if true, also updates state
+  ]
+  if state = "leaving building" [
+    move-human
+    check-if-back-on-road ; updates state to walking around if true
+  ]
+  
+  
+  if state = "waiting for taxi" [
+    ;print "just waiting for taxi"
+    ;pedestrian is idle untill it gets message from its taxi, informing that it arrived
+  ]
+  if state = "riding-taxi" [
+    ;print "in state riding taxi"
+    ;pedestrian is idle untill it gets a message from its taxi that it arrived to destination.
+    
+  ]
+  if state = "leaving-taxi" [
+    set to-get-out-of-taxi 1
+    set bool-needs-new-location 1
+    print "in state leaving taxi" 
+    
+    
+  ]
+  ;if state 
+end 
+;***************************end update beliefs ******************************************************************************************************************
+;************************************************************************************************************************************************************
+; REACTIVE SUBSUMPTION HIERARCHY
+
+to reactive-human
+  
+  
+  if (bool-at-intersektion = 1)[
+    choose-direction
+    set bool-at-intersektion 0
+  ]
+  if to-get-out-of-taxi = 1 [
+    get-out-of-taxi
+    set heading 90
+    set human-type "regular"
+    set state "walking around"
+    set to-get-out-of-taxi 0
+  ]
+  
+end 
+
+
+
+;***************************end reactive subsumption hierarchy ***************************************************************************************************
+;************************************************************************************************************************************************************
+; PROACTIVE BEHAVIOR
+
+to proactive-human
+  if bool-just-entered-building = 1 [
+    get-rest-time
+    set bool-just-entered-building 0
+  ]
+  if bool-needs-new-location = 1 [
+    get-new-target
+    set bool-needs-new-location 0
+  ]
+  ;new
+  go-thru-messages-human
+end ;study
+
+;***************************end proactive behavior ***************************************************************************************************
+;*****************************************************************************************************************************************************
+
+;uppdate beliefs functions
+to move-human
+  if not waiting-for-green [
+    fd (1 * speed)
+  ]
+end
+
+; reactive funktions
+to check-if-at-intersektion-human
+  if check-intersektion-threshhold != 0[
+    set check-intersektion-threshhold check-intersektion-threshhold - 1
+  ]
+  
+  if ( check-intersektion-threshhold = 0 and (
+    (6 <= ycor and ycor <= 9) or
+    (-8 <= ycor and ycor <= -5) or
+    (35 <= ycor and ycor <= 38) or
+    (77 <= ycor and ycor <= 80) or
+    (49 <= ycor and ycor <= 52) or
+    (-36 <= ycor and ycor <= -33) or
+    (-49 <= ycor and ycor <= -46) or
+    (-77 <= ycor and ycor <= -74)
+    )) [
+    if (
+      (6 <= xcor and xcor <= 9) or
+      (-8 <= xcor and xcor <= -5) or
+      (35 <= xcor and xcor <= 38) or
+      (77 <= xcor and xcor <= 80) or
+      (49 <= xcor and xcor <= 52) or
+      (-36 <= xcor and xcor <= -33) or
+      (-49 <= xcor and xcor <= -46) or
+      (-77 <= xcor and xcor <= -74)
+      ) [
+         set bool-at-intersektion 1
+    ]
+  ]
+  
+end
+
+to choose-direction
+  let angle-to-node towardsxy target_node_x target_node_y
+  if angle-to-node > 315 or angle-to-node <= 45[
+    set heading 0
+  ]
+  if angle-to-node > 45 and angle-to-node <= 135[
+    set heading 90
+  ]
+  if angle-to-node > 135 and angle-to-node <= 225[
+    set heading 180
+  ]
+  if angle-to-node > 225 and angle-to-node <= 315[
+    set heading 270
+  ]
+  set check-intersektion-threshhold 10
+  set bool-at-intersektion 0
+  
+end
+
+
+to check-if-at-target-human
+  let x-diff abs(xcor - target_node_x)
+  let y-diff abs(ycor - target_node_y)
+  if x-diff < 1 and y-diff < 4 [
+    set target_node_y target_node_y - 10
+    
+    
+    ifelse human-type = "taxi-rider" [
+    let msg create-message "request"  ; Testing sending request-ride to cars
+    set msg add-content "request-ride_24_28" msg
+    broadcast-to cars msg who
+    set latest-ride-request latest-ride-request + 1
+    set state "waiting for taxi"
+    ]
+    [
+    set heading 180
+    set state "entering building"
+    ]
+  ]
+end
+
+
+to check-if-enterd-building
+  let y-diff abs(ycor - target_node_y)
+  if y-diff < 1 [
+    set target_node_y target_node_y - 10
+    set speed 0
+    set bool-just-entered-building 1
+    set state "resting"
+  ]
+end
+
+
+
+  
+to decrement-rest-time
+  set rest-time rest-time - 1
+  ;print rest-time
+end
+
+to check-if-rest-time-is-over
+  if rest-time = 0 [
+    set heading 0
+    set speed 0.1
+    set bool-needs-new-location 1
+    set state "leaving building"
+  ]
+end
+
+to check-if-back-on-road
+  
+  if (
+    (6 <= ycor and ycor <= 9) or
+    (-8 <= ycor and ycor <= -5) or
+    (35 <= ycor and ycor <= 38) or
+    (77 <= ycor and ycor <= 80) or
+    (49 <= ycor and ycor <= 52) or
+    (-36 <= ycor and ycor <= -33) or
+    (-49 <= ycor and ycor <= -46) or
+    (-77 <= ycor and ycor <= -74)
+    )[
+    
+    let angle-to-node towardsxy target_node_x target_node_y
+    set heading 270
+    if angle-to-node < 180 [
+      set heading 90
+    ]
+    set state "walking around"
+  ]
+end
+
+to check-traffic-light-and-request
+  let nearby-light one-of traffic-lights in-radius 2
+  if nearby-light != nobody [
+    if ([color] of nearby-light = red)[
+      let msg create-message "request"
+      let target-id [who] of nearby-light
+      set msg add-receiver target-id msg
+      set msg add-content (word "turn-green_" target-id) msg
+      send msg
+      ;print (word "Requesting traffic light " target-id " to turn green")
+      set waiting-for-green true
+      stop
+    ]
+  ]
+  set waiting-for-green false
+end
+
+to get-out-of-taxi 
+  let taxi-id-as-string word "" taxi-id
+  let taxi-i-am-riding car read-from-string taxi-id
+  let xpos [xcor] of taxi-i-am-riding
+  let ypos [ycor] of taxi-i-am-riding
+  setxy xpos ypos
+  setxy (xcor - 4) (ycor - 4)
+  show-turtle
+  set state "walking around"
+  
+  
+end
+
+; proactive funktions
+
+
+to get-rest-time
+  let x random 300
+  set rest-time x
+end
+
+
+to get-new-target
+let valid-ids [0 10 20 30 40 50 60 70 80]  ; A1 to I1
+let target-id one-of valid-ids
+let target-node one-of human-nodes with [ID = target-id]
+if target-node != nobody [
+  set target_node_x [xcor] of target-node
+  set target_node_y [ycor] of target-node
+]
+  
+end
+
+
+;new
+to go-thru-messages-human
+  let msg 0 ; Local variables to store message parts
+  let performative 0
+  let msg-content ""
+  while [not empty? incoming-queue][
+    set msg get-message
+    set performative get-performative msg
+    set msg-content get-content msg
+    if performative = "cfp" [
+      if msg-content = "Want the ride?" [
+      let sender-of-message get-sender msg
+       let msg2 create-message "accept-proposal"
+       set msg2 add-content "yes" msg2
+       set msg2 add-receiver sender-of-message msg2
+       set taxi-id sender-of-message
+        
+       
+       hide-turtle
+        
+       set state "riding-taxi"
+       send msg2 
+      ]
+    ]
+    if performative = "inform" [
+      if msg-content = "you are here" [
+      set state "leaving-taxi"
+    ]
+    ]
+  ]
+end
+
+
+
+;***************************end help functions ***************************************************************************************************
+;*****************************************************************************************************************************************************

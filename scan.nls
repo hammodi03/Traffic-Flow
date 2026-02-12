@@ -1,0 +1,176 @@
+; Behöver kalla via en startnode och endnode
+
+; Behöver automatiskt plocka upp en start nod och samt slumpmässig generera en slumpmässig destination
+
+to-report scan-nodes [startnode endnode]
+  ;to scan-nodes
+  ;print "start scan nodes"
+  let nodes-array array:from-list n-values (count nodes) node  ; 
+  let dist-array array:from-list n-values (count nodes) [999999999]
+  let visit-array array:from-list n-values (count nodes) [[]]
+  let start-node (one-of nodes with [label = startnode]); start node not label
+  ;print word "start node" start-node
+  let goal-node (one-of nodes with [label = endnode]); Node som bilen vill till
+  ;print word "goal node" goal-node
+  ;sätt start punk med 0 i dist-array
+  set dist-array ( start-node-dist-set-0 nodes-array dist-array start-node )
+  
+  ; "Snabbast väg"
+  let the-route ( check-unvisit-nodes nodes-array dist-array visit-array start-node goal-node)
+  
+  report the-route
+end
+
+; Gör vår start-node dist-array till 0
+to-report start-node-dist-set-0 [nodes-array dist-array start-node]
+  let while-loop true
+  let i 0
+  while [while-loop][
+    if ((array:item nodes-array i) = start-node) [
+      array:set dist-array i 0
+      set while-loop false ]
+    
+    ; Counter Meassure
+    if (i = ((count (nodes)) - 1))[
+      set while-loop false  
+      print "The start node is not one of the nodes"]
+    set i i + 1 
+  ]
+  report dist-array 
+end
+
+;; Check unvisit-nodes one by one start with lowest distance each time
+to-report check-unvisit-nodes [ nodes-array dist-array visit-array start-node goal-node]
+  ; a copy of array
+  let temp-nodes-array nodes-array
+  let temp-dist-array  dist-array 
+  let temp-visit-array visit-array
+  let temp-start-node start-node
+  ; the current node we checking
+  let current-node-scan []
+  let current-dist []
+  let current-visit []
+  set current-node-scan []
+  ; list of visit and unvisited nodes
+  let visit-nodes-list []
+  let unvisit-nodes-list sort nodes
+  ; shortest-route from start to end
+  let shortest-route []
+  
+  let while-loop true
+  let i 0
+  while [while-loop][ 
+    ; find the shortest unvisited node and set it to current-i
+    let current-i ( next-current-i temp-dist-array temp-nodes-array unvisit-nodes-list)
+    
+    set current-node-scan (array:item temp-nodes-array current-i)
+    set current-dist (array:item temp-dist-array current-i)
+    set current-visit (array:item temp-visit-array current-i)
+    
+    ; Current-node-scan flytta den till visit-nodes-list
+    set unvisit-nodes-list remove current-node-scan unvisit-nodes-list
+    set visit-nodes-list lput current-node-scan visit-nodes-list
+    
+    ; Checka vem som är sina neighbors och notera distansansen 
+    let j 0
+    let dist 1
+    let while-loop2 true
+    while [while-loop2][
+      ;Fråga den aktiva noden vilka noder är den länkad till
+      ask current-node-scan [
+        ; Om aktiva noden är länkad
+        if link-neighbor? (array:item temp-nodes-array j) [
+          ; Om den länkade noden är en unvisit node
+          if member? (array:item temp-nodes-array j) unvisit-nodes-list [
+            if ((array:item temp-dist-array j) > (dist + (current-dist)))[
+              array:set temp-dist-array j (dist + (current-dist))
+              array:set temp-visit-array j current-node-scan 
+            ]
+          ]
+          ; Om den länkade noden är en visit node se om denna kontakt är kortare
+          if member? (array:item temp-nodes-array j) visit-nodes-list [
+            if ((array:item temp-dist-array j) > (dist + (current-dist))) [
+              array:set temp-dist-array j (dist + (current-dist))
+              array:set temp-visit-array j current-node-scan 
+            ]
+          ] 
+        ]
+        ;counter meassure
+        if ((j + 1) = count(nodes))[
+          set while-loop2 false  ]
+        set j j + 1
+      ]
+    ]
+    ; Om man har besökt alla noder kommer man ur loop
+    if ((length unvisit-nodes-list) = 0)[
+      set while-loop false 
+    ]
+    
+    ; counter meassure
+    if ((i + 1) = count(nodes))[
+      set while-loop false  ]
+    set i i + 1
+  ]
+  set shortest-route (shortest-path goal-node temp-nodes-array temp-visit-array)
+  report shortest-route
+end
+
+; Find the shortest unvisited node
+to-report next-current-i [temp-dist-array temp-nodes-array unvisit-nodes-list]
+  let i 0
+  let j ""
+  let while-loop true
+  let current-short 999999999
+  ; Set node has lowest dist to current-node-to-scan
+  while [while-loop][
+    if (current-short > (array:item temp-dist-array i)) [
+      if member? (array:item temp-nodes-array i) unvisit-nodes-list [  
+        ; Sätt denna node som den aktiva
+        set current-short (array:item temp-dist-array i)
+        set j i
+      ] 
+    ]
+    ;counter meassure
+    if ((i + 1) = count(nodes))[
+      set while-loop false ]
+    set i i + 1
+  ]
+  report j
+end
+
+;; Show shortest path
+to-report shortest-path [goal-node temp-nodes-array temp-visit-array]
+  let path []
+  let i 0
+  let j 0
+  let while-loop true
+  let check-node goal-node
+  set path fput check-node path
+  ;set path fput ([label] of check-node) path
+  ; Backtrack from the array goal to start
+  while [while-loop][
+    if ((array:item temp-nodes-array i) = check-node) and not (check-node = [])  [
+      set path fput (array:item temp-visit-array i)  path
+      set check-node (array:item temp-visit-array i) 
+      set i 0
+    ] 
+    ;counter meassure
+    if ((i + 1) = count(nodes))[
+      set while-loop false  ]
+    set i i + 1  
+  ]
+  ; ta bort första [] sen vi skapade i början
+  set path remove-item 0 path
+  ;print length path
+  let label-path []
+  set i 0
+  
+  ;gör om dem till label så det blir läsbart för carAgentFile
+  repeat (length path)[
+    set label-path lput ([label] of item i path) label-path
+    set i i + 1
+  ]
+  ;print label-path
+  ;print path
+  report label-path
+end
